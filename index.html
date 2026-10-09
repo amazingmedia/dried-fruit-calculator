@@ -211,9 +211,11 @@
     </div>
 
     <script>
-        // Supabase Client Config
-        let SUPABASE_URL = localStorage.getItem('sb_url') || ''; 
-        let SUPABASE_ANON_KEY = localStorage.getItem('sb_key') || '';
+        // --- Supabase Config Setup ---
+        // မိမိ Supabase URL နှင့် Anon Key ကို အောက်ပါ နေရာတွင် ထည့်သွင်းပေးနိုင်သည်
+        let SUPABASE_URL = localStorage.getItem('sb_url') || 'https://tnvodarwfhwlixhjjgzj.supabase.co'; 
+        let SUPABASE_ANON_KEY = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRudm9kYXJ3Zmh3bGl4aGpqZ3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3MDg5NDAsImV4cCI6MjA3MDI4NDk0MH0._gjMnpXe2kvf65GLuQRy1ZdkDDy6Vj4Zquv3CdEzP6A';
+
 
         let supabaseClient = null;
         if(SUPABASE_URL && SUPABASE_ANON_KEY) {
