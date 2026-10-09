@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>အသီးခြောက် ကုန်သွယ်မှု စျေးတွက်စက်</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Google Fonts for Myanmar -->
+    <link href="https://fonts.googleapis.com/css2?family=Padauk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Padauk', sans-serif;
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 p-3 md:p-6">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <!-- Supabase Key Setup Banner (If credentials are not yet set) -->
+        <div id="configBanner" class="hidden bg-amber-100 border border-amber-300 rounded-2xl p-4 mb-4">
+            <h3 class="font-bold text-amber-900 mb-2">⚙️ Supabase API ချိတ်ဆက်ရန် (Vercel/Cloud Database အတွက်)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input type="text" id="cfgUrl" placeholder="Supabase Project URL" class="px-3 py-2 border rounded-xl text-xs bg-white">
+                <input type="text" id="cfgKey" placeholder="Supabase Anon Key" class="px-3 py-2 border rounded-xl text-xs bg-white">
+            </div>
+            <button onclick="saveSupabaseConfig()" class="mt-3 bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
+                ချိတ်ဆက်မည်
+            </button>
+        </div>
+
+        <!-- Header Controls -->
+        <div class="bg-emerald-700 text-white rounded-2xl p-5 shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <span id="currentStatus" class="bg-emerald-800 text-emerald-200 text-xs px-3 py-1 rounded-full font-bold">New Project</span>
+                <input type="text" id="projectName" value="အသီးခြောက် တင်သွင်းမှု စာရင်း" 
+                    class="block text-xl md:text-2xl font-bold bg-transparent border-b border-emerald-500 focus:outline-none focus:border-white mt-1 w-full md:w-auto">
+            </div>
+            
+            <div class="flex flex-wrap gap-2">
+                <button onclick="createNewProject()" class="bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-4 py-2 rounded-xl text-sm transition">
+                    ➕ Project အသစ်
+                </button>
+                <button onclick="saveProject()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-4 py-2 rounded-xl text-sm transition flex items-center gap-1">
+                    💾 <span id="saveBtnText">သိမ်းမည် (Save)</span>
+                </button>
+                <button onclick="openProjectModal()" class="bg-slate-900 hover:bg-black text-white font-bold px-4 py-2 rounded-xl text-sm transition">
+                    📂 စာရင်းများ ရှာမည်
+                </button>
+                <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-800 text-white font-bold px-3 py-2 rounded-xl text-sm transition">
+                    🖨️ Print
+                </button>
+            </div>
+        </div>
+
+        <!-- Top Section: Exchange Rate & Expenses -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Exchange Rate Card -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-bold text-lg text-slate-700 flex items-center gap-2">
+                            <span>💱</span> ငွေလဲနှုန်း (Exchange Rate)
+                        </h2>
+                    </div>
+                    <div class="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                        <label class="block text-xs font-bold text-amber-800 uppercase mb-1">၁ ဘတ် (THB) = ကျပ် (MMK)</label>
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl font-bold text-amber-600">฿ 1 =</span>
+                            <input type="number" id="exchangeRate" value="134" oninput="updateCalculations()" 
+                                class="w-full text-2xl font-bold text-slate-800 bg-white border border-amber-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <span class="text-slate-600 font-bold">ကျပ်</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500 space-y-1">
+                    <div class="flex justify-between">
+                        <span>စုစုပေါင်း အလေးချိန်:</span>
+                        <span id="summaryTotalWeight" class="font-bold text-slate-700">0 kg</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>၁ ကီလိုကျ လမ်းစရိတ် အချိုး:</span>
+                        <span id="summaryShippingPerKg" class="font-bold text-slate-700">0 ฿</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expenses Card -->
+            <div class="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-bold text-lg text-slate-700 flex items-center gap-2">
+                        <span>🚚</span> လမ်းစရိတ်များ (Expenses)
+                    </h2>
+                    <button onclick="addExpense()" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                        + လမ်းစရိတ် ထပ်ထည့်ရန်
+                    </button>
+                </div>
+
+                <div id="expenseList" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    <!-- Expenses dynamically added here -->
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-200 flex flex-wrap justify-between items-center text-sm font-bold bg-slate-50 p-3 rounded-xl">
+                    <span class="text-slate-600">စုစုပေါင်း လမ်းစရိတ်:</span>
+                    <div class="space-x-3 text-right">
+                        <span id="totalExpenseThb" class="text-emerald-700">0 ฿</span>
+                        <span class="text-slate-300">|</span>
+                        <span id="totalExpenseMmk" class="text-amber-700">0 Ks</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Full Width Products Table Section -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <div>
+                    <h2 class="font-bold text-xl text-slate-800 flex items-center gap-2">
+                        <span>📦</span> ကုန်ပစ္စည်း စာရင်းများ
+                    </h2>
+                    <p class="text-xs text-slate-500">၁ ထုပ် အမြတ် ကို ရိုက်ထည့်ပါက ရောင်းစျေး နှင့် စုစုပေါင်း အမြတ်ကို အလိုအလျောက် တွက်ချက်ပေးပါမည်</p>
+                </div>
+                <button onclick="addProduct()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-4 py-2 rounded-xl shadow-sm transition">
+                    + ကုန်ပစ္စည်း ထပ်ထည့်ရန်
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold">
+                            <th class="p-3 min-w-[140px]">ကုန်ပစ္စည်း</th>
+                            <th class="p-3 text-center w-20">အလေးချိန် (KG)</th>
+                            <th class="p-3 text-right w-24">1KG စျေး (THB)</th>
+                            <th class="p-3 text-center w-20">1KG လျှင် ထုပ်</th>
+                            <th class="p-3 text-center w-20">စုစုပေါင်း ထုပ်</th>
+                            <th class="p-3 text-right w-24">1 ထုပ်ကျစျေး (THB)</th>
+                            <th class="p-3 text-right w-28">1 ထုပ်ကျစျေး (MMK)</th>
+                            <th class="p-3 text-center w-32 bg-emerald-50 text-emerald-800 border-x border-emerald-100">1 ထုပ် အမြတ် (MMK)</th>
+                            <th class="p-3 text-right w-32 bg-emerald-50 text-emerald-900 border-r border-emerald-100">စုစုပေါင်း အမြတ် (MMK)</th>
+                            <th class="p-3 text-right w-32 bg-amber-50 text-amber-900">ရောင်းစျေး (MMK)</th>
+                            <th class="p-3 text-center w-12">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTableBody" class="divide-y divide-slate-100">
+                        <!-- Product Rows added dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Dashboard / Grand Totals -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                <div class="text-xs text-slate-500 font-bold uppercase mb-1">စုစုပေါင်း အရင်း (Capital)</div>
+                <div id="grandTotalCapital" class="text-2xl font-bold text-slate-800">0 Ks</div>
+                <div id="grandTotalCapitalThb" class="text-xs text-slate-400 mt-1">0 ฿</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                <div class="text-xs text-slate-500 font-bold uppercase mb-1">စုစုပေါင်း မျှော်မှန်းရောင်းရငွေ</div>
+                <div id="grandTotalRevenue" class="text-2xl font-bold text-blue-600">0 Ks</div>
+                <div class="text-xs text-slate-400 mt-1">Total Expected Revenue</div>
+            </div>
+
+            <div class="bg-emerald-600 text-white rounded-2xl p-4 shadow-sm">
+                <div class="text-xs text-emerald-200 font-bold uppercase mb-1">စုစုပေါင်း အသားတင်အမြတ်</div>
+                <div id="grandTotalProfit" class="text-2xl font-bold">0 Ks</div>
+                <div class="text-xs text-emerald-100 mt-1">Net Profit</div>
+            </div>
+
+            <div class="bg-amber-500 text-slate-900 rounded-2xl p-4 shadow-sm">
+                <div class="text-xs text-amber-900 font-bold uppercase mb-1">အမြတ် ရာခိုင်နှုန်း (ROI)</div>
+                <div id="grandRoi" class="text-2xl font-bold">0 %</div>
+                <div class="text-xs text-amber-900/70 mt-1">Profit Margin</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Saved Projects Search Modal -->
+    <div id="projectModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="p-5 bg-slate-900 text-white flex justify-between items-center">
+                <h3 class="text-lg font-bold">📂 သိမ်းဆည်းထားသော Project များ</h3>
+                <button onclick="closeProjectModal()" class="text-slate-400 hover:text-white font-bold text-xl">✕</button>
+            </div>
+            
+            <div class="p-4 border-b border-slate-100 bg-slate-50 flex gap-2">
+                <input type="text" id="searchInput" oninput="filterProjects()" placeholder="Project နာမည် သို့မဟုတ် ရက်စွဲ (YYYY-MM-DD) ဖြင့် ရှာမည်..." 
+                    class="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <div id="modalProjectList" class="p-4 overflow-y-auto divide-y divide-slate-100 flex-1">
+                <!-- Project items render here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Client Config
+        let SUPABASE_URL = localStorage.getItem('sb_url') || ''; 
+        let SUPABASE_ANON_KEY = localStorage.getItem('sb_key') || '';
+
+        let supabaseClient = null;
+        if(SUPABASE_URL && SUPABASE_ANON_KEY) {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } else {
+            document.getElementById('configBanner').classList.remove('hidden');
+        }
+
+        function saveSupabaseConfig() {
+            const u = document.getElementById('cfgUrl').value.trim();
+            const k = document.getElementById('cfgKey').value.trim();
+            if(u && k) {
+                localStorage.setItem('sb_url', u);
+                localStorage.setItem('sb_key', k);
+                location.reload();
+            }
+        }
+
+        // Active State
+        let currentProjectId = null;
+
+        // Default Expenses matching screenshot precisely:
+        // ကားခ / Transport = 11,500 THB
+        let expenses = [
+            { id: 1, name: 'ကားခ / Transport', amount: 11500 },
+            { id: 2, name: 'ထုပ်ပိုးခ / Packaging', amount: 0 }
+        ];
+
+        // Default Products matching screenshot precisely:
+        // 1. ဒူးရင်းသီးခြောက်: 4kg, 1100 THB/kg, 16 packs/kg, Profit 2000 MMK
+        // 2. ပဲနန်းနဲ: 4kg, 480 THB/kg, 16 packs/kg, Profit 1000 MMK
+        // 3. စတော်: 4kg, 750 THB/kg, 18 packs/kg, Profit 1000 MMK
+        // 4. လိမ္မော်: 4kg, 480 THB/kg, 16 packs/kg, Profit 1000 MMK
+        // 5. မာလကာ: 4kg, 200 THB/kg, 16 packs/kg, Profit 1000 MMK
+        // 6. Almond: 4kg, 340 THB/kg, 16 packs/kg, Profit 1000 MMK
+        let products = [
+            { id: 1, name: 'ဒူးရင်းသီးခြောက်', weight: 4, priceThb: 1100, packPerKg: 16, profitPerPackMmk: 2000 },
+            { id: 2, name: 'ပဲနန်းနဲ', weight: 4, priceThb: 480, packPerKg: 16, profitPerPackMmk: 1000 },
+            { id: 3, name: 'စတော်', weight: 4, priceThb: 750, packPerKg: 18, profitPerPackMmk: 1000 },
+            { id: 4, name: 'လိမ္မော်', weight: 4, priceThb: 480, packPerKg: 16, profitPerPackMmk: 1000 },
+            { id: 5, name: 'မာလကာ', weight: 4, priceThb: 200, packPerKg: 16, profitPerPackMmk: 1000 },
+            { id: 6, name: 'Almond', weight: 4, priceThb: 340, packPerKg: 16, profitPerPackMmk: 1000 }
+        ];
+
+        let savedProjectsCache = [];
+
+        function init() {
+            renderExpenses();
+            renderProducts();
+            updateCalculations();
+        }
+
+        async function saveProject() {
+            if(!supabaseClient) {
+                alert('Supabase API မချိတ်ဆက်ရသေးပါ သို့မဟုတ် ဘရောက်ဇာထဲတွင် Local အနေဖြင့် အလုပ်လုပ်နေပါသည်။ API Key ထည့်သွင်းပါ');
+                return;
+            }
+
+            const btnText = document.getElementById('saveBtnText');
+            btnText.innerText = 'သိမ်းဆည်းနေသည်...';
+
+            const name = document.getElementById('projectName').value || 'Project အသစ်';
+            const rate = parseFloat(document.getElementById('exchangeRate').value) || 134;
+
+            const payload = {
+                name: name,
+                exchange_rate: rate,
+                expenses: expenses,
+                products: products,
+                updated_at: new Date().toISOString()
+            };
+
+            let error = null;
+            if (currentProjectId) {
+                const res = await supabaseClient.from('projects').update(payload).eq('id', currentProjectId);
+                error = res.error;
+            } else {
+                const res = await supabaseClient.from('projects').insert([payload]).select();
+                if(res.data && res.data[0]) {
+                    currentProjectId = res.data[0].id;
+                    document.getElementById('currentStatus').innerText = 'Saved Project';
+                }
+                error = res.error;
+            }
+
+            btnText.innerText = 'သိမ်းမည် (Save)';
+            if(error) {
+                alert('သိမ်းဆည်းမှု မအောင်မြင်ပါ: ' + error.message);
+            } else {
+                alert('Project ကို အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!');
+            }
+        }
+
+        async function openProjectModal() {
+            document.getElementById('projectModal').classList.remove('hidden');
+            if(!supabaseClient) return;
+
+            const { data, error } = await supabaseClient.from('projects').select('*').order('updated_at', { ascending: false });
+            if(data) {
+                savedProjectsCache = data;
+                renderProjectList(data);
+            }
+        }
+
+        function closeProjectModal() {
+            document.getElementById('projectModal').classList.add('hidden');
+        }
+
+        function renderProjectList(list) {
+            const container = document.getElementById('modalProjectList');
+            if(!list || list.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-400 py-8 text-sm">သိမ်းဆည်းထားသော Project မရှိသေးပါ</p>`;
+                return;
+            }
+
+            container.innerHTML = list.map(p => {
+                const dateStr = new Date(p.updated_at).toLocaleString('my-MM', { dateStyle: 'medium', timeStyle: 'short' });
+                return `
+                    <div class="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 hover:bg-slate-50 px-2 rounded-xl">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm">${p.name}</h4>
+                            <span class="text-xs text-slate-400">📅 ရက်စွဲ: ${dateStr}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="loadProject('${p.id}')" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-lg">
+                                ✏️ ဖွင့်မည် / Edit
+                            </button>
+                            <button onclick="deleteProjectFromDb('${p.id}')" class="bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold px-2 py-1.5 rounded-lg">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterProjects() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = savedProjectsCache.filter(p => {
+                const nameMatch = p.name.toLowerCase().includes(query);
+                const dateMatch = new Date(p.updated_at).toISOString().includes(query);
+                return nameMatch || dateMatch;
+            });
+            renderProjectList(filtered);
+        }
+
+        function loadProject(id) {
+            const proj = savedProjectsCache.find(p => p.id === id);
+            if(!proj) return;
+
+            currentProjectId = proj.id;
+            document.getElementById('projectName').value = proj.name;
+            document.getElementById('exchangeRate').value = proj.exchange_rate;
+            expenses = proj.expenses || [];
+            products = proj.products || [];
+
+            document.getElementById('currentStatus').innerText = 'Saved Project';
+            renderExpenses();
+            renderProducts();
+            updateCalculations();
+            closeProjectModal();
+        }
+
+        async function deleteProjectFromDb(id) {
+            if(!confirm('ဤ Project ကို ဖျက်ရန် သေချာပါသလား။')) return;
+            if(supabaseClient) await supabaseClient.from('projects').delete().eq('id', id);
+            if(currentProjectId === id) createNewProject();
+            openProjectModal();
+        }
+
+        function createNewProject() {
+            currentProjectId = null;
+            document.getElementById('projectName').value = 'Project အသစ် ' + new Date().toLocaleDateString();
+            document.getElementById('exchangeRate').value = 134;
+            document.getElementById('currentStatus').innerText = 'New Project';
+            expenses = [
+                { id: 1, name: 'ကားခ / Transport', amount: 11500 },
+                { id: 2, name: 'ထုပ်ပိုးခ / Packaging', amount: 0 }
+            ];
+            products = [
+                { id: 1, name: 'ဒူးရင်းသီးခြောက်', weight: 4, priceThb: 1100, packPerKg: 16, profitPerPackMmk: 2000 },
+                { id: 2, name: 'ပဲနန်းနဲ', weight: 4, priceThb: 480, packPerKg: 16, profitPerPackMmk: 1000 },
+                { id: 3, name: 'စတော်', weight: 4, priceThb: 750, packPerKg: 18, profitPerPackMmk: 1000 },
+                { id: 4, name: 'လိမ္မော်', weight: 4, priceThb: 480, packPerKg: 16, profitPerPackMmk: 1000 },
+                { id: 5, name: 'မာလကာ', weight: 4, priceThb: 200, packPerKg: 16, profitPerPackMmk: 1000 },
+                { id: 6, name: 'Almond', weight: 4, priceThb: 340, packPerKg: 16, profitPerPackMmk: 1000 }
+            ];
+            renderExpenses();
+            renderProducts();
+            updateCalculations();
+        }
+
+        function renderExpenses() {
+            const container = document.getElementById('expenseList');
+            container.innerHTML = expenses.map((exp) => `
+                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <input type="text" value="${exp.name}" onchange="updateExpenseName(${exp.id}, this.value)" 
+                        class="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="number" value="${exp.amount}" oninput="updateExpenseAmount(${exp.id}, this.value)" 
+                        class="w-28 text-right bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <span class="text-xs text-slate-500 font-bold">฿</span>
+                    <button onclick="deleteExpense(${exp.id})" class="text-red-400 hover:text-red-600 px-1 font-bold">✕</button>
+                </div>
+            `).join('');
+        }
+
+        function addExpense() {
+            expenses.push({ id: Date.now(), name: 'အထွေထွေ စရိတ်', amount: 0 });
+            renderExpenses();
+            updateCalculations();
+        }
+
+        function updateExpenseName(id, val) { const e = expenses.find(x=>x.id===id); if(e) e.name = val; }
+        function updateExpenseAmount(id, val) { const e = expenses.find(x=>x.id===id); if(e) e.amount = parseFloat(val)||0; updateCalculations(); }
+        function deleteExpense(id) { expenses = expenses.filter(x=>x.id!==id); renderExpenses(); updateCalculations(); }
+
+        function renderProducts() {
+            const tbody = document.getElementById('productTableBody');
+            tbody.innerHTML = products.map((prod) => `
+                <tr class="hover:bg-slate-50 border-b border-slate-100 transition" id="row-${prod.id}">
+                    <td class="p-2">
+                        <input type="text" value="${prod.name}" onchange="updateProductField(${prod.id}, 'name', this.value)" 
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:bg-white">
+                    </td>
+                    <td class="p-2">
+                        <input type="number" value="${prod.weight}" oninput="updateProductField(${prod.id}, 'weight', this.value)" 
+                            class="w-full text-center bg-slate-50 border border-slate-200 rounded-lg px-1 py-1 text-xs font-bold focus:outline-none focus:bg-white">
+                    </td>
+                    <td class="p-2">
+                        <input type="number" value="${prod.priceThb}" oninput="updateProductField(${prod.id}, 'priceThb', this.value)" 
+                            class="w-full text-right bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:bg-white">
+                    </td>
+                    <td class="p-2">
+                        <input type="number" value="${prod.packPerKg}" oninput="updateProductField(${prod.id}, 'packPerKg', this.value)" 
+                            class="w-full text-center bg-slate-50 border border-slate-200 rounded-lg px-1 py-1 text-xs font-bold focus:outline-none focus:bg-white">
+                    </td>
+                    <td class="p-2 text-center font-bold text-slate-700 id-total-packs">0</td>
+                    <td class="p-2 text-right font-bold text-emerald-700 id-cost-thb">0 ฿</td>
+                    <td class="p-2 text-right font-bold text-amber-700 id-cost-mmk">0 Ks</td>
+                    
+                    <!-- Editable Profit Per Pack MMK -->
+                    <td class="p-2 bg-emerald-50/50 border-x border-emerald-100">
+                        <input type="number" id="profit-input-${prod.id}" value="${prod.profitPerPackMmk || 0}" 
+                            oninput="onProfitInput(${prod.id}, this.value)" 
+                            class="w-full text-center font-bold text-emerald-800 bg-white border border-emerald-300 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </td>
+
+                    <!-- Total Profit MMK -->
+                    <td class="p-2 text-right font-bold text-emerald-900 bg-emerald-50/50 border-r border-emerald-100 id-total-profit">0 Ks</td>
+
+                    <!-- Calculated Sell Price MMK (1 Pack Cost MMK + 1 Pack Profit MMK) -->
+                    <td class="p-2 text-right font-bold text-amber-900 bg-amber-50/50 id-sell-price">0 Ks</td>
+
+                    <td class="p-2 text-center">
+                        <button onclick="deleteProduct(${prod.id})" class="text-red-400 hover:text-red-600 font-bold text-xs p-1">✕</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function addProduct() {
+            products.push({ id: Date.now(), name: 'ကုန်ပစ္စည်းအသစ်', weight: 4, priceThb: 500, packPerKg: 16, profitPerPackMmk: 500 });
+            renderProducts();
+            updateCalculations();
+        }
+
+        function updateProductField(id, field, val) {
+            const p = products.find(x => x.id === id);
+            if(p) { p[field] = field === 'name' ? val : (parseFloat(val)||0); updateCalculations(); }
+        }
+
+        function onProfitInput(id, val) {
+            const p = products.find(x => x.id === id);
+            if(p) { p.profitPerPackMmk = parseFloat(val)||0; updateCalculations(false); }
+        }
+
+        function deleteProduct(id) { products = products.filter(x=>x.id!==id); renderProducts(); updateCalculations(); }
+
+        function updateCalculations(updateInputs = true) {
+            const rate = parseFloat(document.getElementById('exchangeRate').value) || 0;
+            const totalExpensesThb = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+            const totalExpensesMmk = totalExpensesThb * rate;
+
+            document.getElementById('totalExpenseThb').innerText = `${totalExpensesThb.toLocaleString()} ฿`;
+            document.getElementById('totalExpenseMmk').innerText = `${totalExpensesMmk.toLocaleString()} Ks`;
+
+            const totalWeight = products.reduce((sum, p) => sum + (p.weight || 0), 0);
+            const shippingPerKg = totalWeight > 0 ? totalExpensesThb / totalWeight : 0;
+
+            document.getElementById('summaryTotalWeight').innerText = `${totalWeight} kg`;
+            document.getElementById('summaryShippingPerKg').innerText = `${shippingPerKg.toFixed(1)} ฿`;
+
+            let grandCapitalMmk = 0, grandCapitalThb = 0, grandRevenueMmk = 0, grandProfitMmk = 0;
+
+            products.forEach(prod => {
+                const totalPacks = prod.weight * prod.packPerKg;
+                const baseCostThb = prod.weight * prod.priceThb;
+                const allocatedShippingThb = prod.weight * shippingPerKg;
+                const totalCostThb = baseCostThb + allocatedShippingThb;
+
+                const costPerPackThb = totalPacks > 0 ? totalCostThb / totalPacks : 0;
+                const costPerPackMmk = costPerPackThb * rate;
+                
+                // 1 ထုပ်ကျစျေး (MMK) + 1 ထုပ် အမြတ် (MMK) = ရောင်းစျေး (MMK)
+                const costPerPackMmkRounded = Math.round(costPerPackMmk);
+                const sellPriceMmk = costPerPackMmkRounded + (prod.profitPerPackMmk || 0);
+
+                const totalProfitForProd = (prod.profitPerPackMmk || 0) * totalPacks;
+                const totalRevenueForProd = sellPriceMmk * totalPacks;
+                const totalCostForProdMmk = costPerPackMmk * totalPacks;
+
+                grandCapitalThb += totalCostThb;
+                grandCapitalMmk += totalCostForProdMmk;
+                grandRevenueMmk += totalRevenueForProd;
+                grandProfitMmk += totalProfitForProd;
+
+                const row = document.getElementById(`row-${prod.id}`);
+                if (row) {
+                    row.querySelector('.id-total-packs').innerText = totalPacks.toLocaleString();
+                    row.querySelector('.id-cost-thb').innerText = `${costPerPackThb.toFixed(1)} ฿`;
+                    row.querySelector('.id-cost-mmk').innerText = `${costPerPackMmkRounded.toLocaleString()} Ks`;
+                    row.querySelector('.id-total-profit').innerText = `${Math.round(totalProfitForProd).toLocaleString()} Ks`;
+                    row.querySelector('.id-sell-price').innerText = `${Math.round(sellPriceMmk).toLocaleString()} Ks`;
+
+                    if (updateInputs) {
+                        const profInp = document.getElementById(`profit-input-${prod.id}`);
+                        if (profInp) profInp.value = prod.profitPerPackMmk || 0;
+                    }
+                }
+            });
+
+            document.getElementById('grandTotalCapital').innerText = `${Math.round(grandCapitalMmk).toLocaleString()} Ks`;
+            document.getElementById('grandTotalCapitalThb').innerText = `${Math.round(grandCapitalThb).toLocaleString()} ฿`;
+            document.getElementById('grandTotalRevenue').innerText = `${Math.round(grandRevenueMmk).toLocaleString()} Ks`;
+            document.getElementById('grandTotalProfit').innerText = `${Math.round(grandProfitMmk).toLocaleString()} Ks`;
+
+            const roi = grandCapitalMmk > 0 ? (grandProfitMmk / grandCapitalMmk) * 100 : 0;
+            document.getElementById('grandRoi').innerText = `${roi.toFixed(1)} %`;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
+```
+
+### ပြင်ဆင်ပြီးစီးခဲ့သည့် Default အချက်အလက်များ -
+1. **ငွေလဲနှုန်း (Exchange Rate):** `134` ကျပ်
+2. **လမ်းစရိတ် (Expenses):** ကားခ / Transport = `11,500` ဘတ်
+3. **ကုန်ပစ္စည်း (၆) မျိုး:**
+   - **ဒူးရင်းသီးခြောက်:** အလေးချိန် `4` kg | ၁ ကီလိုစျေး `1100` THB | ၁ ကီလိုလျှင် `16` ထုပ် | ၁ ထုပ် အမြတ် `2000` MMK
+   - **ပဲနန်းနဲ:** အလေးချိန် `4` kg | ၁ ကီလိုစျေး `480` THB | ၁ ကီလိုလျှင် `16` ထုပ် | ၁ ထုပ် အမြတ် `1000` MMK
+   - **စတော်:** အလေးချိန် `4` kg | ၁ ကီလိုစျေး `750` THB | ၁ ကီလိုလျှင် `18` ထုပ် | ၁ ထုပ် အမြတ် `1000` MMK
+   - **လိမ္မော်:** အလေးချိန် `4` kg | ၁ ကီလိုစျေး `480` THB | ၁ ကီလိုလျှင် `16` ထုပ် | ၁ ထုပ် အမြတ် `1000` MMK
+   - **မာလကာ:** အလေးချိန် `4` kg | ၁ ကီလိုစျေး `200` THB | ၁ ကီလိုလျှင် `16` ထုပ် | ၁ ထုပ် အမြတ် `1000` MMK
+   - **Almond:** အလေးချိန် `4` kg | ၁ ကီလိုစျေး `340` THB | ၁ ကီလိုလျှင် `16` ထုပ် | ၁ ထုပ် အမြတ် `1000` MMK
